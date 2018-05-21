@@ -294,7 +294,7 @@ var writePWMFreqAndValue = function (pin, pwm, freq, value, resp, callback) {
         var period = Math.round(1.0e9 / freq); // period in ns
         if (debug) winston.debug('hw.writePWMFreqAndValue: pwm.freq=' + pwm.freq +
             ', freq=' + freq + ', period=' + period);
-        if (pwm.freq != freq) {
+        if (pwm.freq != freq || Number(fs.readFileSync(path + '/enable')) === 0) {
             try {
                 if (debug) winston.debug('Stopping PWM');
                 fs.writeFileSync(path + '/enable', "0\n");
@@ -322,7 +322,10 @@ var writePWMFreqAndValue = function (pin, pwm, freq, value, resp, callback) {
         var duty = Math.round(period * value);
         if (debug) winston.debug('Updating PWM duty: ' + duty);
         //if(duty == 0) winston.error('Updating PWM duty: ' + duty);
-        fs.writeFileSync(path + '/duty_cycle', duty + "\n");
+        if (duty == 0 || freq == 0)
+            fs.writeFileSync(path + '/enable', "0\n"); //disable pwm output to avoid spikes when writing 0 duty cycle
+        else
+            fs.writeFileSync(path + '/duty_cycle', duty + "\n");
     } catch (ex) {
         resp.err = 'error updating PWM freq and value: ' + path + ', ' + ex;
         winston.error(resp.err);

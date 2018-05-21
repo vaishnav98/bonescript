@@ -236,6 +236,12 @@ f.digitalWrite = function (pin, value, callback) {
     pin = my.getpin(pin);
     if (debug) winston.debug('digitalWrite(' + [pin.key, value] + ');');
     value = parseInt(Number(value), 2) ? 1 : 0;
+    //handle case digitalWrite() on Analog_Out
+    if (pin.pwm != 'undefined' && pin.mux != 7) {
+        winston.debug([pin.key, value] + ' set as ANALOG_OUTPUT modifying duty cycle according to value');
+        f.analogWrite(pin, value, myCallback);
+        return (true);
+    }
 
     hw.writeGPIOValue(pin, value, myCallback);
 
