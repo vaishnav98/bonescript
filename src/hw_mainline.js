@@ -337,7 +337,6 @@ var writePWMFreqAndValue = function (pin, pwm, freq, value, resp, callback) {
                 } catch (ex2) {
                     if (debug) winston.debug('Error starting PWM: ' + ex2);
                 }
-
             }
             if (debug) winston.debug('Updating PWM duty: ' + duty);
             //if(duty == 0) winston.error('Updating PWM duty: ' + duty);
