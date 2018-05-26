@@ -185,6 +185,23 @@ f.pinMode = function (pin, direction, mux, pullup, slew, callback) {
         if (callback) callback(resp);
         return (resp.value);
     }
+    /* Perform exportGPIOControls() before setPinMode() since in
+     snappy core f.getPinMode(pin).mux is returned undefined which triggers
+     the return thus not exporting GPIOControls */
+    // Enable GPIO and set direction
+    if (mux == 7) {
+        // Export the GPIO controls
+        resp = hw.exportGPIOControls(pin, direction, resp);
+        if (typeof resp.err != 'undefined') {
+            if (typeof gpio[n] == 'undefined') {
+                delete gpio[n];
+            }
+        } else {
+            gpio[n] = true;
+        }
+    } else {
+        delete gpio[n];
+    }
 
     // Figure out the desired value
     var pinData = my.pin_data(slew, direction, pullup, mux);
@@ -205,20 +222,6 @@ f.pinMode = function (pin, direction, mux, pullup, slew, callback) {
         }
     }
 
-    // Enable GPIO and set direction
-    if (mux == 7) {
-        // Export the GPIO controls
-        resp = hw.exportGPIOControls(pin, direction, resp);
-        if (typeof resp.err != 'undefined') {
-            if (typeof gpio[n] == 'undefined') {
-                delete gpio[n];
-            }
-        } else {
-            gpio[n] = true;
-        }
-    } else {
-        delete gpio[n];
-    }
 
     if (callback) callback(resp);
     return (resp.value);
