@@ -185,9 +185,16 @@ f.pinMode = function (pin, direction, mux, pullup, slew, callback) {
         if (callback) callback(resp);
         return (resp.value);
     }
-    /* Perform exportGPIOControls() before setPinMode() since in
+    // Figure out the desired value
+    var pinData = my.pin_data(slew, direction, pullup, mux);
+
+    // May be required: mount -t debugfs none /sys/kernel/debug
+    resp = hw.setPinMode(pin, pinData, template, resp);
+
+    /* Perform exportGPIOControls() before setPinMode() resp check since in
      snappy core f.getPinMode(pin).mux is returned undefined which triggers
-     the return thus not exporting GPIOControls */
+     the return thus not exporting GPIOControls (not the best way to do it but works as 
+     a quick fix since in snappy pinmux details are not very relevant)*/
     // Enable GPIO and set direction
     if (mux == 7) {
         // Export the GPIO controls
@@ -203,11 +210,6 @@ f.pinMode = function (pin, direction, mux, pullup, slew, callback) {
         delete gpio[n];
     }
 
-    // Figure out the desired value
-    var pinData = my.pin_data(slew, direction, pullup, mux);
-
-    // May be required: mount -t debugfs none /sys/kernel/debug
-    resp = hw.setPinMode(pin, pinData, template, resp);
 
     if (typeof resp.err != 'undefined') {
         if (debug) winston.debug('Unable to configure mux for pin ' + pin + ': ' + resp.err);

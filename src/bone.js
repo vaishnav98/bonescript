@@ -9,7 +9,7 @@
 var pinIndex = [{
         "name": "USR0",
         "gpio": 53,
-        "led": "beaglebone:green:usr0",
+        "led": "beaglebone:green:heartbeat",
         "mux": "gpmc_a5",
         "key": "USR0",
         "muxRegOffset": "0x054",
@@ -31,7 +31,7 @@ var pinIndex = [{
     {
         "name": "USR1",
         "gpio": 54,
-        "led": "beaglebone:green:usr1",
+        "led": "beaglebone:green:mmc0",
         "mux": "gpmc_a6",
         "key": "USR1",
         "muxRegOffset": "0x058",
