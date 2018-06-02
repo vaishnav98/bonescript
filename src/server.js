@@ -7,6 +7,7 @@ var winston = require('winston');
 var express = require('express');
 var events = require('events');
 var socketHandlers = require('./socket_handlers');
+var enableRemote = socketHandlers.enableRemote;
 
 var serverEmitter = new events.EventEmitter();
 
@@ -47,7 +48,10 @@ function mylisten(port, directory) {
     app.use('/bone101/static', express.static(directory + "/static"));
     app.use(express.static(directory));
     var server = http.createServer(app);
-    socketHandlers.addSocketListeners(server, serverEmitter);
+    if (!enableRemote)
+        socketHandlers.addSocketListeners(server, serverEmitter);
+    else
+        socketHandlers.addRemoteSocketListeners(server, serverEmitter);
     server.listen(port);
     return (server);
 }

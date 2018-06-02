@@ -7,8 +7,19 @@ var url = require('url');
 var child_process = require('child_process');
 var winston = require('winston');
 var socketio = require('socket.io');
+var enableRemote = false;
+var username, password;
 
 var debug = process.env.DEBUG ? true : false;
+// get remote config details from external config file if exists
+try {
+    remote_config = require('./remote_config.json');
+    enableRemote = remote_config.enableRemote;
+    username = remote_config.username;
+    password = remote_config.password;
+} catch (ex) {
+    enableRemote = false;
+}
 
 var socketJSReqHandler = function (req, res) {
     function sendFile(err, file) {
@@ -39,92 +50,121 @@ var addSocketListeners = function (server, serverEmitter) {
     io.on('connection', onconnect);
 
     function onconnect(socket) {
-        winston.debug('Client connected');
-
-        serverEmitter.emit('socket$connect', socket);
-
-        // on disconnect
-        socket.on('disconnect', function () {
-            if (debug) winston.debug('Client disconnected');
-            serverEmitter.emit('socket$disconnect');
-        });
-
-        socket.on('message', serverMessage);
-
-        spawn(socket);
-
-        var modmsg = {};
-        modmsg.module = 'bonescript';
-        modmsg.data = {};
-
-        var callMyFunc = function (name, m) {
-            var myCallback = function (resp) {
-                if (debug) winston.debug(name + ' replied to ' + JSON.stringify(m) + ' with ' + JSON.stringify(resp));
-                if (typeof m.seq == 'undefined') return;
-                if (!resp || (typeof resp != 'object')) resp = {
-                    'data': resp
-                };
-                resp.seq = m.seq;
-                // TODO: consider setting 'oneshot'
-                if (debug) winston.debug('Sending message "bonescript": ' + JSON.stringify(resp));
-                socket.emit('bonescript', resp);
-            };
-            try {
-                var callargs = [];
-                for (var arg in b[name].args) {
-                    var argname = b[name].args[arg];
-                    if (argname == 'callback') {
-                        if (typeof m.seq == 'number') callargs.push(myCallback);
-                        else callargs.push(null);
-                    } else if (typeof m[argname] != 'undefined') {
-                        callargs.push(m[argname]);
-                    } else {
-                        callargs.push(undefined);
+        if (enableRemote) {
+            socket.on('authentication', function (data) {
+                auth = (data.username == username && data.password == password);
+                if (auth) listenSockets();
+                setTimeout(function () {
+                    if (!auth) {
+                        if (debug) winston.debug('Client disconnected');
+                        socket.disconnect('unauthorized');
                     }
+                }, 1000);
+            });
+        } else listenSockets();
+
+        function listenSockets() {
+            winston.debug('Client connected');
+
+            serverEmitter.emit('socket$connect', socket);
+
+            // on disconnect
+            socket.on('disconnect', function () {
+                if (debug) winston.debug('Client disconnected');
+                serverEmitter.emit('socket$disconnect');
+            });
+
+            socket.on('message', serverMessage);
+
+            spawn(socket);
+
+            var modmsg = {};
+            modmsg.module = 'bonescript';
+            modmsg.data = {};
+
+            var callMyFunc = function (name, m) {
+                var myCallback = function (resp) {
+                    if (debug) winston.debug(name + ' replied to ' + JSON.stringify(m) + ' with ' + JSON.stringify(resp));
+                    if (typeof m.seq == 'undefined') return;
+                    if (!resp || (typeof resp != 'object')) resp = {
+                        'data': resp
+                    };
+                    resp.seq = m.seq;
+                    // TODO: consider setting 'oneshot'
+                    if (debug) winston.debug('Sending message "bonescript": ' + JSON.stringify(resp));
+                    socket.emit('bonescript', resp);
+                };
+                try {
+                    var callargs = [];
+                    for (var arg in b[name].args) {
+                        var argname = b[name].args[arg];
+                        if (argname == 'callback') {
+                            if (typeof m.seq == 'number') callargs.push(myCallback);
+                            else callargs.push(null);
+                        } else if (typeof m[argname] != 'undefined') {
+                            callargs.push(m[argname]);
+                        } else {
+                            callargs.push(undefined);
+                        }
+                    }
+                    if (debug) winston.debug('Calling ' + name + '(' + callargs.join(',') + ')');
+                    b[name].apply(this, callargs);
+                } catch (ex) {
+                    if (debug) winston.debug('Error handing ' + name + ' message: ' + ex);
+                    if (debug) winston.debug('m = ' + JSON.stringify(m));
                 }
-                if (debug) winston.debug('Calling ' + name + '(' + callargs.join(',') + ')');
-                b[name].apply(this, callargs);
-            } catch (ex) {
-                if (debug) winston.debug('Error handing ' + name + ' message: ' + ex);
-                if (debug) winston.debug('m = ' + JSON.stringify(m));
-            }
-        };
-
-        var addSocketX = function (message, name) {
-            var onFuncMessage = function (m) {
-                callMyFunc(name, m);
             };
-            socket.on(message, onFuncMessage);
-        };
 
-        var b = require('../main');
-        for (var i in b) {
-            if (typeof b[i] == 'function') {
-                if (typeof b[i].args != 'undefined') {
+            var addSocketX = function (message, name) {
+                var onFuncMessage = function (m) {
+                    callMyFunc(name, m);
+                };
+                socket.on(message, onFuncMessage);
+            };
+
+            var b = require('../main');
+            for (var i in b) {
+                if (typeof b[i] == 'function') {
+                    if (typeof b[i].args != 'undefined') {
+                        modmsg.data[i] = {};
+                        modmsg.data[i].name = i;
+                        modmsg.data[i].type = 'function';
+                        modmsg.data[i].value = b[i].args;
+                        addSocketX('bonescript$' + i, i);
+                    }
+                } else {
                     modmsg.data[i] = {};
                     modmsg.data[i].name = i;
-                    modmsg.data[i].type = 'function';
-                    modmsg.data[i].value = b[i].args;
-                    addSocketX('bonescript$' + i, i);
+                    modmsg.data[i].type = typeof b[i];
+                    modmsg.data[i].value = b[i];
                 }
-            } else {
-                modmsg.data[i] = {};
-                modmsg.data[i].name = i;
-                modmsg.data[i].type = typeof b[i];
-                modmsg.data[i].value = b[i];
             }
+
+            socket.emit('require', modmsg);
         }
 
-        socket.emit('require', modmsg);
+        function serverMessage(message) {
+            serverEmitter.emit('message', message);
+        }
     }
-
-    function serverMessage(message) {
-        serverEmitter.emit('message', message);
-    }
-
     return (io);
 }
-
+//add Socketlisteners only upon successful authentication (called only if remoteEnable is true)
+var addRemoteSocketListeners = function (server, serverEmitter) {
+    var io = socketio(server); //used socketio-auth module
+    require('socketio-auth')(io, {
+        authenticate: function (socket, data, callback) {
+            return callback(null, data.username == username && data.password == password);
+        },
+        postAuthenticate: function (socket, data) {
+            addSocketListeners(server, serverEmitter); //on succesful authentication add Socketlisteners
+        },
+        disconnect: function (socket) {
+            if (debug) winston.debug('Remote Socket ' + socket.id + ' disconnected');
+        },
+        timeout: 3000
+    });
+}
 // most heavily borrowed from https://github.com/itchyny/browsershell
 function spawn(socket) {
     var stream = '';
@@ -194,5 +234,7 @@ function spawn(socket) {
 
 module.exports = {
     socketJSReqHandler: socketJSReqHandler,
-    addSocketListeners: addSocketListeners
+    addSocketListeners: addSocketListeners,
+    addRemoteSocketListeners: addRemoteSocketListeners,
+    enableRemote: enableRemote
 }
