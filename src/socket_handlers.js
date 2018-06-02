@@ -8,7 +8,9 @@ var child_process = require('child_process');
 var winston = require('winston');
 var socketio = require('socket.io');
 var enableRemote = false;
+var enableHTTPS = false;
 var username, password;
+var HTTPSoptions = {};
 
 var debug = process.env.DEBUG ? true : false;
 // get remote config details from external config file if exists
@@ -17,8 +19,13 @@ try {
     enableRemote = remote_config.enableRemote;
     username = remote_config.username;
     password = remote_config.password;
+    enableHTTPS = remote_config.enableHTTPS;
+    HTTPSoptions.key = remote_config.SSLkey;
+    HTTPSoptions.cert = remote_config.SSLcert;
+    HTTPSoptions.passphrase = remote_config.SSLpassphrase;
 } catch (ex) {
     enableRemote = false;
+    enableHTTPS = false;
 }
 
 var socketJSReqHandler = function (req, res) {
@@ -236,5 +243,7 @@ module.exports = {
     socketJSReqHandler: socketJSReqHandler,
     addSocketListeners: addSocketListeners,
     addRemoteSocketListeners: addRemoteSocketListeners,
-    enableRemote: enableRemote
+    enableRemote: enableRemote,
+    enableHTTPS: enableHTTPS,
+    HTTPSoptions: HTTPSoptions
 }

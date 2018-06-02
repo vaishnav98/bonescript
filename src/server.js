@@ -3,11 +3,14 @@
 //
 var fs = require('fs');
 var http = require('http');
+var https = require('https');
 var winston = require('winston');
 var express = require('express');
 var events = require('events');
 var socketHandlers = require('./socket_handlers');
 var enableRemote = socketHandlers.enableRemote;
+var enableHTTPS = socketHandlers.enableHTTPS;
+var HTTPSoptions = socketHandlers.HTTPSoptions;
 
 var serverEmitter = new events.EventEmitter();
 
@@ -47,7 +50,11 @@ function mylisten(port, directory) {
     app.use('/bone101', express.static(directory));
     app.use('/bone101/static', express.static(directory + "/static"));
     app.use(express.static(directory));
-    var server = http.createServer(app);
+    var server;
+    if (!enableHTTPS)
+        server = http.createServer(app);
+    else
+        server = https.createServer(HTTPSoptions, app);
     if (!enableRemote)
         socketHandlers.addSocketListeners(server, serverEmitter);
     else
