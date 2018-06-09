@@ -295,7 +295,7 @@ f.digitalRead = function (pin, callback) {
         if (callback.length == 1)
             callback(analogValue(x));
         else
-            callback(x.err, analogValue(x));
+            callback(x.err, analogValue(x).value);
     }
 
     function analogValue(x) {
