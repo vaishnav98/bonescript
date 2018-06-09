@@ -305,6 +305,7 @@ f.digitalRead = function (pin, callback) {
         } else {
             x.value = g.LOW;
         }
+        return x;
     }
 
     return (resp.value);
