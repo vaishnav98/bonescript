@@ -22,7 +22,7 @@ _bonescript.on.initialized = function () {};
         var jar = request.jar();
         module.exports.startClient = function (host, callback) {
             //get the cookie string to be send with the socket connection
-            var authUrl = 'http://' + host.user + ':' + host.pass + '@' + host.address + '/login';
+            var authUrl = 'http://' + host.user + ':' + host.pass + '@' + host.address + ':' + host.port + '/login';
             request.get({
                 url: authUrl,
                 jar: jar

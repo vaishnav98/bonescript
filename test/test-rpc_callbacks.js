@@ -3,7 +3,7 @@ var bonescript = require('../src/bonescript');
 var myserver = null;
 
 exports.testSetUp = function (test) {
-    server.serverStart(80, process.cwd(), null, mycb);
+    server.serverStart(8000, process.cwd(), null, mycb);
 
     function mycb(serverobj) {
         myserver = serverobj.server;
@@ -16,7 +16,7 @@ exports.testRPC_callbacks = function (test) {
 
     bonescript.startClient({
         address: '127.0.0.1',
-        port: 80
+        port: 8000
     }, getPlatformTest_previous);
 
     function getPlatformTest_previous() {
