@@ -1,7 +1,8 @@
 var fs = require('fs');
 var shell = require('shelljs');
 var winston = require('winston');
-
+var child_process = require('child_process');
+var node_path = require('path');
 var debug = process.env.DEBUG ? true : false;
 
 var rproc_path = '/sys/class/remoteproc/remoteproc';
@@ -55,14 +56,37 @@ var loadPRUFirmware = function (filepath, pruno) {
         winston.error('PRU Core No. should be 0 or 1');
         return false;
     }
-    if (!(fs.existsSync(filepath))) {
-        winston.error('Firmware file not found');
-        return false;
+    if ((filepath).indexOf('.out') == -1) {
+        var filename = node_path.basename(filepath);
+        var directory = filepath.replace(filename, '');
+        if (debug) winston.debug('compiling and loading firmware: ' + filepath + 'to pru' + pruno) //compile the source using bone101 makefile
+        var make = child_process.spawn('/usr/bin/make', [
+            "-f",
+            "/usr/share/bone101/examples/extras/pru/Makefile",
+            "TARGET=" + filename.replace(/\.c$/, ''),
+            "PRUN=" + 'pru' + pruno
+        ], {
+            'cwd': directory
+        });
+        make.stdout.on('data', (data) => {
+            if (debug) winston.debug(`stdout: ${data}`);
+        });
+        make.stderr.on('data', (data) => {
+            winston.error(`stderr: ${data}`);
+        });
+        return true; //the makfile handles loading of firmware
+    } else {
+        if (!(fs.existsSync(directory + filename))) {
+            winston.error('Firmware file not found');
+            return false;
+        }
+        if (debug) winston.debug('loading firmware: ' + filepath + ' to pru' + pruno)
+        pruEnable(pruno, false); //disable PRU before loading firmware if not already disabled
+        var path = fw_path + pruno + ' -fw';
+        shell.cp(filepath, path); //used because fs.copyFile() not supported, fast enough
+        pruEnable(pruno, true); //enable PRU after loading firmware
+        return true;
     }
-    pruEnable(pruno, false); //disable PRU before loading firmware if not already disabled
-    var path = fw_path + pruno + ' -fw';
-    shell.cp(filepath, path); //used because fs.copyFile() not supported, fast enough
-    pruEnable(pruno, true); //enable PRU after loading firmware
 }
 //sendmsg
 var sendrpMsg = function (message, pruno) {
