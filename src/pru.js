@@ -3,6 +3,7 @@ var shell = require('shelljs');
 var winston = require('winston');
 var child_process = require('child_process');
 var node_path = require('path');
+var events = require('events');
 var debug = process.env.DEBUG ? true : false;
 
 var rproc_path = '/sys/class/remoteproc/remoteproc';
@@ -113,7 +114,15 @@ var getrpMsg = function (pruno) {
     if (!(fs.existsSync(path))) {
         winston.error('getMsg failed to fetch message');
         return false;
-    } else return fs.readFileSync(path).toString();
+    } else {
+        var rpmsgEmitter = new events.EventEmitter();
+        fs.watch(path, function (curr, prev) {
+            fs.readFile(path, 'utf8', function (err, data) {
+                rpmsgEmitter.emit('rpmsg', data);
+            });
+        });
+        return rpmsgEmitter;
+    }
 }
 
 module.exports = {
